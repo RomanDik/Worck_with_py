@@ -1,11 +1,15 @@
-
+from sympy import *
+from math import sqrt
+# для начала в терминале ввести .\.venv\Scripts\python.exe .\main.py
 from random import choice, randint
 # from layout_colorwidget import Color
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt,QEvent,QSize
 from PySide6.QtGui import (
+    QKeyEvent,
     QMouseEvent,
     QPalette, 
-    QColor
+    QColor,
+    QGuiApplication
     )
 from PySide6.QtWidgets import (
     QApplication,
@@ -16,8 +20,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QGridLayout,
-    QFrame
+    QFrame,
+    QComboBox
 )
+Mem1 = 0
 class Color(QWidget):
 
     def __init__(self, color):
@@ -28,30 +34,96 @@ class Color(QWidget):
         self.setPalette(palette)
 
 class CustomQPushButton(QPushButton):
-    def __init__(self, text, parent):
-        """
-        Конструктор для создания кнопки с текстом и родительским виджетом.
-
-        Parameters: 
-        self: ссылка на текущий экземпляр класса. 
-        text: строка, содержащая имя файла JSON для чтения. 
-        parent: ссылка на родительские виджеты.
-
-        Returns: 
-        None.
-        """
+    def __init__(self, text, parent, if_eng:bool=False):
         super().__init__(text, parent=parent)
         self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
         self.full_formula = self.parent().full_formula
         self.alone_sign = self.parent().alone_sign
-        self.full_formula.setText("0")
-        self.alone_sign.setText("0")
-       
+        self.full_formula.setText("")
+        self.alone_sign.setText("")
+        self.is_eng = if_eng  # указатель, что кнопка является частью инженерного режима
+        
+    
+    def eng_toggle(self):
+        """ Переключение видимости кнопок """
+        if self.is_eng and self.isVisible():
+            self.hide()
+        elif self.is_eng and not self.isVisible():
+            self.show()
+
+
+    def keyPressEvent(self, e_1: QKeyEvent) -> None:
+        """
+        Обработчик события нажатия кнопки клавиатуры.
+        Проверяет длину полей, и если они превышают допустимые значения, не выполняет никаких действий.
+
+        Parameters: 
+        self: ссылка на текущий экземпляр класса. 
+        e_1: объект QKeyEvent, который содержит информацию о событии нажатия кнопки клавиатуры
+
+        Returns: 
+        None.
+        """
+        if not e_1.key() == Qt.Key_Delete and not e_1.key() == Qt.Key_Backspace:
+            if len(str(self.full_formula.text())) > 65 or len(str(self.alone_sign.text())) > 65:
+                return 0
+        match e_1.key():
+            case Qt.Key_1:
+                self.full_formula.setText(self.full_formula.text() + "1")
+            case Qt.Key_2:
+                self.full_formula.setText(self.full_formula.text() + "2")
+            case Qt.Key_3:
+                self.full_formula.setText(self.full_formula.text() + "3")
+            case Qt.Key_4:
+                self.full_formula.setText(self.full_formula.text() + "4")
+            case Qt.Key_5:
+                self.full_formula.setText(self.full_formula.text() + "5")
+            case Qt.Key_6:
+                self.full_formula.setText(self.full_formula.text() + "6")
+            case Qt.Key_7:
+                self.full_formula.setText(self.full_formula.text() + "7")
+            case Qt.Key_8:
+                self.full_formula.setText(self.full_formula.text() + "8")
+            case Qt.Key_9:
+                self.full_formula.setText(self.full_formula.text() + "9")
+            case Qt.Key_0:
+                self.full_formula.setText(self.full_formula.text() + "0")
+            case Qt.Key_Plus:
+                self.full_formula.setText(self.full_formula.text() + "+")
+            case Qt.Key_Minus:
+                self.full_formula.setText(self.full_formula.text() + "-")
+            case Qt.Key_Asterisk:
+                self.full_formula.setText(self.full_formula.text() + "*")
+            case Qt.Key_Slash:
+                self.full_formula.setText(self.full_formula.text() + "/")
+            case Qt.Key_Period:
+                try:
+                    if self.full_formula.text()[-1] == ".":
+                        self.full_formula.setText(self.full_formula.text()[:(len(self.full_formula.text())-1)] + ",")
+                    elif self.full_formula.text()[-1] == ",":
+                        self.full_formula.setText(self.full_formula.text()[:(len(self.full_formula.text())-1)] + ".")
+                    else:
+                        self.full_formula.setText(self.full_formula.text() + ".")
+                except:
+                    pass
+            case Qt.Key_Backspace:
+                self.full_formula.setText(self.full_formula.text()[:(len(self.full_formula.text())-1)])
+            case Qt.Key_Delete:
+                self.full_formula.clear()
+        try:
+            x = float(sympify(self.full_formula.text()))
+            if x % 1 == 0:
+                self.alone_sign.setText(str(int(sympify(self.full_formula.text()))))
+            else:
+                self.alone_sign.setText(str(float(sympify(self.full_formula.text())))) 
+        except:
+                self.alone_sign.setText('err')
+# //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        return super().keyPressEvent(e_1)
     def mousePressEvent(self, e: QMouseEvent) -> None:
         """
         Обработчик события нажатия кнопки мыши.
-        Обратыватывает ввод цифр, десятичного разделителя, знака плюс/минус, кнопки очистки поля, и кнопки равно.
         Проверяет длину полей, и если они превышают допустимые значения, не выполняет никаких действий.
 
         Parameters: 
@@ -61,112 +133,99 @@ class CustomQPushButton(QPushButton):
         Returns: 
         None.
         """
-        #Условие, при котором после превышения допустимого количества символов, остаються активны только кнопки С и CE
-        if self.text() == 'C' or self.text() == 'CE': 
-            pass                                      
-        else:
-            if len(str(self.full_formula.text())) > 40 or len(str(self.alone_sign.text())) > 40:
-                return 0
-            
-        #Условие, при котором точка в одном числе может быть введена только один раз.
-        if self.text() == ".":
-            if "." in self.alone_sign.text():
+        global Mem1
+        # Условие не выхода за пределы видимости поля ввода
+        if not self.text() == 'C' and not self.text() == '<=':
+            if len(str(self.full_formula.text())) > 65 or len(str(self.alone_sign.text())) > 65:
+                return 0    
+        # Кнопки удаления строки или символа
+        if self.text() == "C" or self.text() == "<=":
+            if self.text() == "C":
+                self.full_formula.clear()
+                self.alone_sign.clear()
+            else:
+                self.full_formula.setText(self.full_formula.text()[:(len(self.full_formula.text())-1)])
+        
+        # Пропуск кнопки смены режима
+        elif self.text() == "Инжинерный" or self.text() == "Обычный":
+            pass
+        # Кнопки памяти
+        elif self.text() == "MC": 
+            Mem1 = 0
+        elif self.text() == "MR": 
+            self.full_formula.setText(self.full_formula.text() + str(Mem1))
+        elif self.text() == "MS": 
+            if not self.alone_sign.text() == "err":
+                Mem1 = float(self.alone_sign.text())
+        elif self.text() == "M+": 
+                Mem1 +=  float(self.alone_sign.text())   
+        elif self.text() == "M-": 
+                Mem1 -=  float(self.alone_sign.text())
+        # Точка если нажато в первый раз или последний символ , и наоборот. (запятая нужна для логарифма)
+        elif self.text() == ". / ,":
+            try:
+                if self.full_formula.text()[-1] == ".":
+                    self.full_formula.setText(self.full_formula.text()[:(len(self.full_formula.text())-1)] + ",")
+                elif self.full_formula.text()[-1] == ",":
+                    self.full_formula.setText(self.full_formula.text()[:(len(self.full_formula.text())-1)] + ".")
+                else:
+                    self.full_formula.setText(self.full_formula.text() + ".")
+            except:
                 pass
-            else:
-                self.alone_sign.setText(self.alone_sign.text() + self.text())
-
-        #Если число положительное, добавить - перед этим числом, если же минус уже стоит, то убрать его
-        elif self.text() == "+/-":
-            if not ("=" in self.alone_sign.text()): #Проверкана то, что перед кнопкой - не была нажата кнопка =
-                if self.alone_sign.text()[0] == "-":
-                    rem = float(self.alone_sign.text()) * -1
-                    self.alone_sign.setText(str(rem))
-                else:
-                    self.alone_sign.setText("-" + self.alone_sign.text())
-
-        #Если нажатая кнока является числом и перед этим не была нажата кнопка =, то добавить текст с копки в строку одиночного значения (self.alone_sign)
-        elif str(self.text()).isdigit():
-                if not ("=" in self.alone_sign.text() or (str(self.full_formula.text()[-1]).isdigit() and len(self.full_formula.text())>1)):
-                    if self.alone_sign.text() == "0":
-                        self.alone_sign.clear()
-                    self.alone_sign.setText(self.alone_sign.text() + self.text())
+        # Рандомное число
+        elif self.text() == "rand":
+            self.full_formula.setText(self.full_formula.text() + str(randint(0,1000)))
+        # добавляем скобку вместе с выводом логарифмов и корня для красоты и понимания.
+        elif self.text() == "log" or self.text() == "ln" or self.text() == "sqrt":
+            self.full_formula.setText(self.full_formula.text() + self.text() + "(")
+        # Если нажато что-то из следующего: (изначально в формулу добавляются символы из-за счета в радианах)
+        elif self.text() == "sin" or self.text() == "cos" or self.text() == "tan" or self.text() == "cot": 
+            if self.text() == "sin":
+                self.full_formula.setText(self.full_formula.text() + self.text() + "(pi/180*")
+            if self.text() == "cos":
+                self.full_formula.setText(self.full_formula.text() + self.text()+ "(pi/180*")
+            if self.text() == "tan":
+                self.full_formula.setText(self.full_formula.text() + self.text()+ "(pi/180*")
+            if self.text() == "cot":
+                self.full_formula.setText(self.full_formula.text() + self.text()+ "(pi/180*")
+        # вывод напечатанного символа
         else:
-            # стереть только строку одиночного значения (self.alone_sign)
-            if self.text() == 'C':
-                self.alone_sign.setText("0")
-            # стереть строку одиночного значения (self.alone_sign) и строку всего выражения (self.full_formula)
-            elif self.text() == 'CE':
-                self.alone_sign.setText("0")
-                self.full_formula.setText("0")
-            #Если нажата кнопка =
-            elif self.text() == '=':
-                #Если после точки нет больше чифр, то добавить 0 во избежание непонятных ситуаций
-                if self.alone_sign.text()[-1] == ".":
-                    self.alone_sign.setText(self.alone_sign.text() + "0")
-                #Если в строке всего выражения (self.full_formula) стоит 0, то очистить её.
-                if self.full_formula.text() == "0":
-                    self.full_formula.clear()
-                #Условие, которое при повторном нажатии кнопки = повторяет с итоговым результатом последнюю проведенную операцию в строке всего выражения (self.full_formula)
-                if "=" in self.alone_sign.text() and ("+" in self.full_formula.text() or "-" in self.full_formula.text() or "*" in self.full_formula.text() or "/" in self.full_formula.text()):
-                    time_alone = ""
-                    fin = 0
-                    i = len(self.full_formula.text()) - 1
-                    while fin == 0:
-                        if self.full_formula.text()[i] == "+" or self.full_formula.text()[i] == "-" or self.full_formula.text()[i] == "*" or self.full_formula.text()[i] == "/":
-                           time_alone = self.full_formula.text()[i] + time_alone
-                           fin = 1
-                        else:
-                           time_alone = self.full_formula.text()[i] + time_alone
-                           i -= 1
-                    time_full = str(self.alone_sign.text())
-                    time_full = time_full[1:]
-                    time_full = time_full + time_alone
-                    self.full_formula.setText(time_full)
-                    self.alone_sign.setText("=" + str(eval(self.full_formula.text())))
-                #Если значение полного выражения не содержит + или - или * или /, то повторно нажать = нельзя
-                elif "=" in self.alone_sign.text():
-                    pass
-                #Условие добавления в строку всего выражения (self.full_formula) значения строки одиночного значения (self.alone_sign)
-                elif len(self.alone_sign.text()) > 0:
-                    if not self.alone_sign.text() == "0":
-                        self.full_formula.setText(self.full_formula.text() + self.alone_sign.text())
-                        self.alone_sign.setText("=" + str(eval(self.full_formula.text())))
-                else:
-                    if str(self.full_formula.text()[-1]).isdigit() or str(self.alone_sign.text()[-1]).isdigit():
-                        self.full_formula.setText(self.full_formula.text() + self.alone_sign.text())
-                        self.alone_sign.setText("=" + str(eval(self.full_formula.text())))
+            self.full_formula.setText(self.full_formula.text() + self.text())
+        # попытки вычисления: удачно-вывод значения, неудачно-вывод err
+        try:
+            x = float(sympify(self.full_formula.text()))
+            if x % 1 == 0:
+                self.alone_sign.setText(str(int(sympify(self.full_formula.text()))))
             else:
-                    if self.alone_sign.text()[-1] == ".":
-                        self.alone_sign.setText(self.alone_sign.text() + "0")
-                    if "=" in self.alone_sign.text():
-                        self.alone_sign.clear()
-                    if self.full_formula.text() == "0":
-                        self.full_formula.clear()
-                    self.full_formula.setText(self.full_formula.text() + self.alone_sign.text() + self.text())
-                    self.alone_sign.setText("0")
+                self.alone_sign.setText(str(float(sympify(self.full_formula.text())))) 
+        except:
+                self.alone_sign.setText('')
 
         return super().mousePressEvent(e)
 
+class ClickableLabel(QLabel):
+    
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+
+    def mousePressEvent(self, event):
+        """Позволяет скопировать содержимое виджета"""
+        if event.button() == Qt.LeftButton:
+            clipboard = QGuiApplication.clipboard()
+            clipboard.setText(self.text())
+            print("Скопированно:", self.text())
 class MainWindow(QMainWindow):  
     def __init__(self):
-        """
-        Конструктор для создания главного окна приложения.
-
-        Parameters: 
-        self: ссылка на текущий экземпляр класса. 
-
-        Returns: 
-        None.
-        """
         super(MainWindow, self).__init__()
-        # self.setFixedSize(QSize(650, 500))
+        self.setFixedSize(QSize(550, 300))
         self.setWindowTitle("кальклюкатор")
-        self.full_formula = QLabel()
-        self.full_formula.setFixedWidth(300)
+        
+        self.full_formula = ClickableLabel()
+        self.full_formula.setFixedWidth(450)
         self.full_formula.setAlignment(Qt.AlignRight)
-        self.alone_sign = QLabel()
+        self.alone_sign = ClickableLabel()
         self.alone_sign.setAlignment(Qt.AlignRight)
-        self.alone_sign.setFixedWidth(300)
+        self.alone_sign.setFixedWidth(450)
        
         
         #main widget
@@ -187,34 +246,55 @@ class MainWindow(QMainWindow):
         labels_frame = QFrame()
 
         layout_butt = QGridLayout()
-
-        layout_butt.addWidget(CustomQPushButton("1", self), 1, 0)
-        layout_butt.addWidget(CustomQPushButton("4", self), 2, 0)
-        layout_butt.addWidget(CustomQPushButton("7", self), 3, 0)
-        layout_butt.addWidget(CustomQPushButton("+/-", self), 4, 0)
-        layout_butt.addWidget(CustomQPushButton("C", self), 0, 1)
-        layout_butt.addWidget(CustomQPushButton("2", self), 1, 1)
-        layout_butt.addWidget(CustomQPushButton("5", self), 2, 1)
-        layout_butt.addWidget(CustomQPushButton("8", self), 3, 1)
-        layout_butt.addWidget(CustomQPushButton("0", self), 4, 1)
-        layout_butt.addWidget(CustomQPushButton("CE", self), 0, 2)
-        layout_butt.addWidget(CustomQPushButton("3", self), 1, 2)
-        layout_butt.addWidget(CustomQPushButton("6", self), 2, 2)
-        layout_butt.addWidget(CustomQPushButton("9", self), 3, 2)
-        layout_butt.addWidget(CustomQPushButton(".", self), 4, 2)
-        layout_butt.addWidget(CustomQPushButton("/", self), 0, 3)
-        layout_butt.addWidget(CustomQPushButton("*", self), 1, 3)
-        layout_butt.addWidget(CustomQPushButton("-", self), 2, 3)
-        layout_butt.addWidget(CustomQPushButton("+", self), 3, 3)
-        layout_butt.addWidget(CustomQPushButton("=", self), 4, 3)
+        layout_butt.addWidget(CustomQPushButton("log", self, True), 0, 0)
+        layout_butt.addWidget(CustomQPushButton("ln", self,True), 1, 0)
+        layout_butt.addWidget(CustomQPushButton("sin", self,True), 2, 0)
+        layout_butt.addWidget(CustomQPushButton("cos", self,True), 3, 0)
+        layout_butt.addWidget(CustomQPushButton("tan", self,True), 4, 0)
+        layout_butt.addWidget(CustomQPushButton("cot", self,True), 5, 0)
+        layout_butt.addWidget(CustomQPushButton("sqrt", self), 0, 1)
+        layout_butt.addWidget(CustomQPushButton("**", self), 1, 1)
+        layout_butt.addWidget(CustomQPushButton("1", self), 2, 1)
+        layout_butt.addWidget(CustomQPushButton("4", self), 3, 1)
+        layout_butt.addWidget(CustomQPushButton("7", self), 4, 1)
+        layout_butt.addWidget(CustomQPushButton("rand", self), 5, 1)
+        layout_butt.addWidget(CustomQPushButton("%", self), 0, 2)
+        layout_butt.addWidget(CustomQPushButton("C", self), 1, 2)
+        layout_butt.addWidget(CustomQPushButton("2", self), 2, 2)
+        layout_butt.addWidget(CustomQPushButton("5", self), 3, 2)
+        layout_butt.addWidget(CustomQPushButton("8", self), 4, 2)
+        layout_butt.addWidget(CustomQPushButton("0", self), 5, 2)
+        layout_butt.addWidget(CustomQPushButton("(", self), 0, 3)
+        layout_butt.addWidget(CustomQPushButton("<=", self), 1, 3)
+        layout_butt.addWidget(CustomQPushButton("3", self), 2, 3)
+        layout_butt.addWidget(CustomQPushButton("6", self), 3, 3)
+        layout_butt.addWidget(CustomQPushButton("9", self), 4, 3)
+        layout_butt.addWidget(CustomQPushButton(". / ,", self), 5, 3)
+        layout_butt.addWidget(CustomQPushButton(")", self), 0, 4)
+        layout_butt.addWidget(CustomQPushButton("/", self), 1, 4)
+        layout_butt.addWidget(CustomQPushButton("*", self), 2, 4)
+        layout_butt.addWidget(CustomQPushButton("-", self), 3, 4)
+        layout_butt.addWidget(CustomQPushButton("+", self), 4, 4)
+        layout_butt.addWidget(CustomQPushButton("pi", self), 5, 4)
+        switcher = CustomQPushButton("Инжинерный", self)
+        switcher.clicked.connect(lambda: [button.eng_toggle() for button in self.findChildren(CustomQPushButton)])
+        switcher.clicked.connect(lambda: switcher.setText('Обычный') if switcher.text() == "Инжинерный" else\
+                                 switcher.setText("Инжинерный"))
+        layout_butt.addWidget(switcher, 0, 5)
+        layout_butt.addWidget(CustomQPushButton("MC", self), 1, 5)
+        layout_butt.addWidget(CustomQPushButton("MR", self), 2, 5)
+        layout_butt.addWidget(CustomQPushButton("MS", self), 3, 5)
+        layout_butt.addWidget(CustomQPushButton("M+", self), 4, 5)
+        layout_butt.addWidget(CustomQPushButton("M-", self), 5, 5)
 
         main_widget.layout().addLayout(layout_butt)
         self.setCentralWidget(main_widget)
-
+    
+            
 
 if __name__ == "__main__":
     app = QApplication([])
-
+    
     window = MainWindow()
     window.show()
     app.exec()
